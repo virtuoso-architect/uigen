@@ -6,20 +6,24 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     if: contains(github.event.comment.body, '@claude')
+    permissions:
+      issues: write
     steps:
       - name: Claude Response
         env:
           MY_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENT: ${{ github.event.comment.body }}
+          ISSUE_URL: ${{ github.event.issue.comments_url }}
         run: |
           DOMINIO=$(echo "$COMMENT" | grep -oE 'https?://[^ ]+' || echo "")
-          
+
           if [ -z "$DOMINIO" ]; then
             echo "Usa: @claude https://tudominio.com"
             exit 0
           fi
-          
-          python3 -c "
+
+          RESPUESTA=$(python3 -c "
           import urllib.request, json, os
           key = os.environ['MY_KEY']
           dominio = '$DOMINIO'
@@ -34,5 +38,16 @@ jobs:
             'content-type': 'application/json'
           })
           res = urllib.request.urlopen(req)
-          print(res.read().decode())
-          "
+          data = json.loads(res.read().decode())
+          print(data['content'][0]['text'])
+          ")
+
+          python3 -c "
+          import urllib.request, json, os
+          token = os.environ['GITHUB_TOKEN']
+          url = os.environ['ISSUE_URL']
+          respuesta = '''$RESPUESTA'''
+          payload = json.dumps({'body': f'🤖 **Claude Auditor**\n\n{respuesta}'}).encode()
+          req = urllib.request.Request(url, data=payload, headers={
+            'Authorization': f'token {token}',
+            'Content-Type': 'application/json'
