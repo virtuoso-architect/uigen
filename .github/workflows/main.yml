@@ -17,7 +17,7 @@ jobs:
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d '{
-                "model": "claude-3-5-sonnet-20241022",
+                "model": "claude-3-5-sonnet-latest",
                 "max_tokens": 1024,
-                "messages": [{"role": "user", "content": "Hola Claude, si puedes leer esto, dime un punto de mejora para posadadeltepozteco.com.mx"}]
+                "messages": [{"role": "user", "content": "Analiza posadadeltepozteco.com.mx y dime 3 puntos de mejora críticos."}]
               }'
