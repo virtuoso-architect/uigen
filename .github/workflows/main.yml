@@ -18,35 +18,42 @@ jobs:
         run: |
           python3 -c "
           import urllib.request, json, os
-
           key = os.environ['MY_KEY']
           token = os.environ['GITHUB_TOKEN']
           url = os.environ['ISSUE_URL']
           comment = os.environ['COMMENT']
-
-          system_prompt = '''Eres el Sistema Operativo de Estrategia para el Grupo de Hector y Patricio. Tus pilares son: 1. VIRTUOSO (IA y Ventas), 2. CCT (Turismo), 3. UMBRELLA (Carpas), 4. CABANA REPUBLIC. NUEVA FACULTAD: Produccion de Eventos y Contenido UGC (Patricio). Tu mision es adaptar tu tono y solucion segun el proyecto mencionado. Si es para Patricio/UGC, se creativo, dinamico y enfocado en viralidad. Si es para Hector/Consultoria, se analitico y enfocado en ROI. Si el proyecto no existe aun, propone como integrarlo al ecosistema.'''
-
-          payload = json.dumps({
-            'model': 'claude-sonnet-4-5',
-            'max_tokens': 2000,
-            'system': system_prompt,
-            'messages': [{'role': 'user', 'content': comment}]
-          }).encode()
-
-          req = urllib.request.Request('https://api.anthropic.com/v1/messages', data=payload, headers={
-            'x-api-key': key,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json'
-          })
-          res = urllib.request.urlopen(req)
-          data = json.loads(res.read().decode())
-          respuesta = data['content'][0]['text']
-
-          payload2 = json.dumps({'body': f'🤖 **Claude Auditor**\n\n{respuesta}'}).encode()
-          req2 = urllib.request.Request(url, data=payload2, headers={
-            'Authorization': f'token {token}',
-            'Content-Type': 'application/json'
-          })
-          urllib.request.urlopen(req2)
-          print('Comentario publicado')
+          system_prompt = '''Eres el Hub de Estrategia y Tecnología del Grupo H&P. 
+          Tus pilares y usuarios son:
+          1. HÉCTOR (Estrategia/ROI): Virtuoso, CCT, Umbrella, Cabana Republic. Enfoque en cierre de ventas y modelos de negocio.
+          2. PATRICIO (UGC/Eventos): Creatividad, guiones virales, ganchos (hooks) y logística de eventos.
+          3. FERRAN (Tech Stack/Automación): Experto en n8n, Vapi, Airtable, GHL y arquitectura de prompts.
+          
+          Misión según el usuario:
+          - Si pregunta Ferran: Sé técnico, preciso y estructurado. Ayuda con lógica de nodos en n8n, esquemas de bases de datos en Airtable, configuración de agentes en Vapi o estructuras JSON para GHL.
+          - Si pregunta Patricio: Sé fresco y creativo.
+          - Si pregunta Héctor: Sé estratégico y orientado a resultados económicos.'''
+          try:
+              payload = json.dumps({
+                  'model': 'claude-sonnet-4-5',
+                  'max_tokens': 4000,
+                  'system': system_prompt,
+                  'messages': [{'role': 'user', 'content': comment}]
+              }).encode()
+              req = urllib.request.Request('https://api.anthropic.com/v1/messages', data=payload, headers={
+                  'x-api-key': key,
+                  'anthropic-version': '2023-06-01',
+                  'content-type': 'application/json'
+              })
+              with urllib.request.urlopen(req) as res:
+                  data = json.loads(res.read().decode())
+                  respuesta = data['content'][0]['text']
+              payload2 = json.dumps({'body': f'🤖 **Cerebro Central H&P**\n\n{respuesta}'}).encode()
+              req2 = urllib.request.Request(url, data=payload2, headers={
+                  'Authorization': f'token {token}',
+                  'Content-Type': 'application/json'
+              })
+              urllib.request.urlopen(req2)
+              print('OK')
+          except Exception as e:
+              print(f'Error: {e}')
           "
