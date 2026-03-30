@@ -17,7 +17,7 @@ jobs:
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d '{
-                "model": "claude-3-5-sonnet-latest",
+                "model": "claude-3-5-sonnet-20240620",
                 "max_tokens": 1024,
-                "messages": [{"role": "user", "content": "Analiza brevemente la web posadadeltepozteco.com.mx y dime 3 puntos críticos de conversión para venderles una mejora de $25,000 MXN."}]
+                "messages": [{"role": "user", "content": "Analiza brevemente la web posadadeltepozteco.com.mx y dime 3 puntos críticos de conversión."}]
               }'
