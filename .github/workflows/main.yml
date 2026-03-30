@@ -15,9 +15,10 @@ jobs:
           curl https://api.anthropic.com/v1/messages \
             -H "x-api-key: $MY_KEY" \
             -H "anthropic-version: 2023-06-01" \
+            -H "anthropic-organization: 0cb8eea3-8218-4b3a-8e0d-1db7a2dd6704" \
             -H "content-type: application/json" \
             -d '{
-                "model": "claude-2.1",
+                "model": "claude-3-5-sonnet-20241022",
                 "max_tokens": 1024,
-                "messages": [{"role": "user", "content": "Hola Claude, confirma si tienes acceso a este canal."}]
+                "messages": [{"role": "user", "content": "Analiza brevemente posadadeltepozteco.com.mx y dime 3 puntos de mejora críticos."}]
               }'
