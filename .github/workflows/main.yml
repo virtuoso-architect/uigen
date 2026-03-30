@@ -1,19 +1,21 @@
-name: Claude Code
+name: Claude Auditor
 on:
   issue_comment:
     types: [created]
 
 jobs:
-  claude:
+  audit:
     runs-on: ubuntu-latest
     if: contains(github.event.comment.body, '@claude')
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Claude Code Action
-        uses: anthropic/claude-code-github-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Claude Response
+        run: |
+          curl https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{
+                "model": "claude-3-5-sonnet-20240620",
+                "max_tokens": 1024,
+                "messages": [{"role": "user", "content": "Analiza brevemente posadadeltepozteco.com.mx y dime un punto crítico de mejora para justificar un aumento de precio."}]
+              }'
