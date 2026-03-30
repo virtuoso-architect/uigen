@@ -16,22 +16,23 @@ jobs:
           COMMENT: ${{ github.event.comment.body }}
           ISSUE_URL: ${{ github.event.issue.comments_url }}
         run: |
-          DOMINIO=$(echo "$COMMENT" | grep -oE 'https?://[^ ]+' || echo "")
-
-          if [ -z "$DOMINIO" ]; then
-            echo "Usa: @claude https://tudominio.com"
-            exit 0
-          fi
-
-          RESPUESTA=$(python3 -c "
+          python3 -c "
           import urllib.request, json, os
+
           key = os.environ['MY_KEY']
-          dominio = '$DOMINIO'
+          token = os.environ['GITHUB_TOKEN']
+          url = os.environ['ISSUE_URL']
+          comment = os.environ['COMMENT']
+
+          system_prompt = '''Eres el Sistema Operativo de Estrategia para el Grupo de Hector y Patricio. Tus pilares son: 1. VIRTUOSO (IA y Ventas), 2. CCT (Turismo), 3. UMBRELLA (Carpas), 4. CABANA REPUBLIC. NUEVA FACULTAD: Produccion de Eventos y Contenido UGC (Patricio). Tu mision es adaptar tu tono y solucion segun el proyecto mencionado. Si es para Patricio/UGC, se creativo, dinamico y enfocado en viralidad. Si es para Hector/Consultoria, se analitico y enfocado en ROI. Si el proyecto no existe aun, propone como integrarlo al ecosistema.'''
+
           payload = json.dumps({
             'model': 'claude-sonnet-4-5',
-            'max_tokens': 1024,
-            'messages': [{'role': 'user', 'content': f'Analiza {dominio} y dame 3 puntos de mejora criticos para un hotel de lujo.'}]
+            'max_tokens': 2000,
+            'system': system_prompt,
+            'messages': [{'role': 'user', 'content': comment}]
           }).encode()
+
           req = urllib.request.Request('https://api.anthropic.com/v1/messages', data=payload, headers={
             'x-api-key': key,
             'anthropic-version': '2023-06-01',
@@ -39,19 +40,13 @@ jobs:
           })
           res = urllib.request.urlopen(req)
           data = json.loads(res.read().decode())
-          print(data['content'][0]['text'])
-          ")
+          respuesta = data['content'][0]['text']
 
-          python3 -c "
-          import urllib.request, json, os
-          token = os.environ['GITHUB_TOKEN']
-          url = os.environ['ISSUE_URL']
-          respuesta = '''$RESPUESTA'''
-          payload = json.dumps({'body': f'🤖 **Claude Auditor**\n\n{respuesta}'}).encode()
-          req = urllib.request.Request(url, data=payload, headers={
+          payload2 = json.dumps({'body': f'🤖 **Claude Auditor**\n\n{respuesta}'}).encode()
+          req2 = urllib.request.Request(url, data=payload2, headers={
             'Authorization': f'token {token}',
             'Content-Type': 'application/json'
           })
-          urllib.request.urlopen(req)
+          urllib.request.urlopen(req2)
           print('Comentario publicado')
           "
