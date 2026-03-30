@@ -12,7 +12,12 @@ jobs:
           MY_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           COMMENT: ${{ github.event.comment.body }}
         run: |
-          DOMINIO=$(echo "$COMMENT" | grep -oP 'https?://[^\s]+')
+          DOMINIO=$(echo "$COMMENT" | grep -oE 'https?://[^ ]+' || echo "")
+          
+          if [ -z "$DOMINIO" ]; then
+            echo "No se encontró URL en el comentario. Usa: @claude https://tudominio.com"
+            exit 0
+          fi
           
           PAYLOAD=$(cat <<EOF
           {
@@ -31,3 +36,10 @@ jobs:
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d "$PAYLOAD"
+```
+
+---
+
+Después del commit, prueba en un issue con este comentario exacto:
+```
+@claude https://posadadeltepozteco.com.mx
