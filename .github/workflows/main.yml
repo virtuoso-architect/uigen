@@ -2,7 +2,6 @@ name: Claude Auditor
 on:
   issue_comment:
     types: [created]
-
 jobs:
   audit:
     runs-on: ubuntu-latest
@@ -17,7 +16,12 @@ jobs:
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d '{
-                "model": "claude-3-5-sonnet-latest",
+                "model": "claude-sonnet-4-5",
                 "max_tokens": 1024,
                 "messages": [{"role": "user", "content": "Analiza posadadeltepozteco.com.mx y dime 3 puntos de mejora críticos."}]
               }'
+```
+
+**Solo cambié esta línea:**
+```
+"claude-3-5-sonnet-latest"  →  "claude-sonnet-4-5"
