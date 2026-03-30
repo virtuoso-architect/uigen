@@ -51,3 +51,7 @@ jobs:
           req = urllib.request.Request(url, data=payload, headers={
             'Authorization': f'token {token}',
             'Content-Type': 'application/json'
+          })
+          urllib.request.urlopen(req)
+          print('Comentario publicado')
+          "
