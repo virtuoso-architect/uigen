@@ -18,7 +18,7 @@ jobs:
             -H "anthropic-organization: 0cb8eea3-8218-4b3a-8e0d-1db7a2dd6704" \
             -H "content-type: application/json" \
             -d '{
-                "model": "claude-3-5-sonnet-20241022",
+                "model": "claude-3-5-sonnet-latest",
                 "max_tokens": 1024,
-                "messages": [{"role": "user", "content": "Analiza brevemente posadadeltepozteco.com.mx y dime 3 puntos de mejora críticos."}]
+                "messages": [{"role": "user", "content": "Hola Claude, dime si ya puedes leerme."}]
               }'
