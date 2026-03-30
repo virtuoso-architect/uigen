@@ -10,18 +10,25 @@ jobs:
       - name: Claude Response
         env:
           MY_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          COMMENT: ${{ github.event.comment.body }}
         run: |
+          # Extrae la URL del comentario (asume formato: @claude https://dominio.com)
+          DOMINIO=$(echo "$COMMENT" | grep -oP 'https?://[^\s]+')
+          
           curl https://api.anthropic.com/v1/messages \
             -H "x-api-key: $MY_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
-            -d '{
-                "model": "claude-sonnet-4-5",
-                "max_tokens": 1024,
-                "messages": [{"role": "user", "content": "Analiza posadadeltepozteco.com.mx y dime 3 puntos de mejora críticos."}]
-              }'
+            -d "{
+                \"model\": \"claude-sonnet-4-5\",
+                \"max_tokens\": 1024,
+                \"messages\": [{
+                  \"role\": \"user\",
+                  \"content\": \"Analiza $DOMINIO y dame 3 puntos de mejora críticos para un hotel de lujo.\"
+                }]
+              }"
 ```
 
-**Solo cambié esta línea:**
+**Uso en el issue:**
 ```
-"claude-3-5-sonnet-latest"  →  "claude-sonnet-4-5"
+@claude https://posadadeltepozteco.com.mx
