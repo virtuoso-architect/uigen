@@ -9,13 +9,15 @@ jobs:
     if: contains(github.event.comment.body, '@claude')
     steps:
       - name: Claude Response
+        env:
+          MY_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           curl https://api.anthropic.com/v1/messages \
-            -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" \
+            -H "x-api-key: $MY_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d '{
                 "model": "claude-3-5-sonnet-20240620",
                 "max_tokens": 1024,
-                "messages": [{"role": "user", "content": "Analiza brevemente posadadeltepozteco.com.mx y dime un punto crítico de mejora para justificar un aumento de precio."}]
+                "messages": [{"role": "user", "content": "Analiza brevemente posadadeltepozteco.com.mx y dime un punto crítico de mejora."}]
               }'
