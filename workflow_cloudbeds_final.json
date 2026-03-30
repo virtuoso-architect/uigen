@@ -1,0 +1,255 @@
+{
+  "name": "Cloudbeds_Reserva_Automatica_VirtuosoIA",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cloudbeds-reserva-ghl",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "3f7a1d2c-8e4b-4f9a-b6c5-d1e2f3a4b5c6",
+      "name": "Webhook_GHL_Entrada",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "7d8e9f0a-1b2c-3d4e-5f6a-7b8c9d0e1f2a",
+      "notes": "Receptor de payload desde GHL Workflow. URL: /webhook/cloudbeds-reserva-ghl"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// NODO: Format_Fechas_YYYYMMDD\n// Autor: Virtuoso IA Agency\n// Version: 1.0  |  API Target: Cloudbeds v1.2\n// ============================================================\n// FUNCION: Validar campos, normalizar fechas a YYYY-MM-DD\n//          y mapear room_type code a roomTypeID de Cloudbeds\n// ============================================================\n\nconst body = $input.first().json.body || $input.first().json;\n\n// --- 1. Validacion de campos obligatorios ---\nconst REQUIRED_FIELDS = ['first_name', 'last_name', 'email', 'checkin', 'checkout', 'room_type'];\nconst missing = REQUIRED_FIELDS.filter(f => !body[f] || String(body[f]).trim() === '');\n\nif (missing.length > 0) {\n  throw new Error('CAMPOS_FALTANTES | ' + missing.join(', '));\n}\n\n// --- 2. Validacion de formato de email ---\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (!emailRegex.test(body.email)) {\n  throw new Error('EMAIL_INVALIDO | Valor recibido: ' + body.email);\n}\n\n// --- 3. Normalizacion de fechas a YYYY-MM-DD ---\n// Acepta: YYYY-MM-DD | MM/DD/YYYY | DD-MM-YYYY | timestamps Unix\nfunction toYYYYMMDD(dateInput) {\n  let d;\n  const str = String(dateInput).trim();\n\n  // Timestamp numerico (Unix ms)\n  if (/^\\d{10,13}$/.test(str)) {\n    d = new Date(str.length === 10 ? parseInt(str) * 1000 : parseInt(str));\n  }\n  // Formato DD/MM/YYYY (comun en GHL)\n  else if (/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(str)) {\n    const [dd, mm, yyyy] = str.split('/');\n    d = new Date(`${yyyy}-${mm}-${dd}T12:00:00Z`);\n  }\n  // Formato YYYY-MM-DD o MM/DD/YYYY (nativo JS)\n  else {\n    d = new Date(str.includes('T') ? str : str + 'T12:00:00Z');\n  }\n\n  if (isNaN(d.getTime())) {\n    throw new Error('FECHA_INVALIDA | No se pudo parsear: ' + dateInput);\n  }\n\n  const year  = d.getUTCFullYear();\n  const month = String(d.getUTCMonth() + 1).padStart(2, '0');\n  const day   = String(d.getUTCDate()).padStart(2, '0');\n  return `${year}-${month}-${day}`;\n}\n\nconst checkin  = toYYYYMMDD(body.checkin);\nconst checkout = toYYYYMMDD(body.checkout);\n\n// --- 4. Validacion logica de fechas ---\nconst msDay = 86400000;\nconst diffDays = (new Date(checkout) - new Date(checkin)) / msDay;\n\nif (diffDays <= 0) {\n  throw new Error('FECHA_LOGICA | checkout debe ser posterior a checkin. Diff: ' + diffDays + ' dias');\n}\nif (diffDays > 90) {\n  throw new Error('FECHA_RANGO | Estadia mayor a 90 dias no permitida. Dias: ' + diffDays);\n}\nif (new Date(checkin) < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z')) {\n  throw new Error('FECHA_PASADA | checkin no puede ser en el pasado: ' + checkin);\n}\n\n// --- 5. Mapeo de Room Type Code -> Cloudbeds roomTypeID ---\n// IMPORTANTE: Reemplazar los IDs con los IDs reales del Sandbox\n// Obtener via: GET https://api.cloudbeds.com/api/v1.2/getRoomTypes?propertyID=XXX\nconst ROOM_TYPE_MAP = {\n  'DQ': '{{ ROOM_TYPE_ID_DQ }}',  // Deluxe Queen  -- reemplazar con ID real\n  'DK': '{{ ROOM_TYPE_ID_DK }}'   // Deluxe King   -- reemplazar con ID real\n};\n\nconst roomCode = String(body.room_type).toUpperCase().trim();\nconst roomTypeID = ROOM_TYPE_MAP[roomCode];\n\nif (!roomTypeID || roomTypeID.startsWith('{{')) {\n  throw new Error('ROOM_TYPE_NO_MAPEADO | Codigo: ' + roomCode + ' | Opciones validas: DQ, DK');\n}\n\n// --- 6. Output estructurado para nodo HTTP Request ---\nreturn [{\n  json: {\n    // --- Datos del huesped ---\n    guestFirstName : body.first_name.trim(),\n    guestLastName  : body.last_name.trim(),\n    guestEmail     : body.email.trim().toLowerCase(),\n\n    // --- Fechas normalizadas ---\n    startDate      : checkin,\n    endDate        : checkout,\n    nightCount     : diffDays,\n\n    // --- Habitacion ---\n    roomTypeID     : roomTypeID,\n    roomTypeCode   : roomCode,\n\n    // --- Propiedad Cloudbeds Sandbox ---\n    // IMPORTANTE: Reemplazar con propertyID real del Sandbox Virtuoso\n    propertyID     : body.property_id || '{{ PROPERTY_ID_SANDBOX }}',\n\n    // --- Parametros adicionales ---\n    adults         : Math.max(1, parseInt(body.adults) || 1),\n    children       : parseInt(body.children) || 0,\n    source         : 'Virtuoso IA / GHL',\n    status         : 'confirmed',\n\n    // --- Metadata de trazabilidad ---\n    _ghl_contact_id : body.contact_id || '',\n    _raw_checkin    : body.checkin,\n    _raw_checkout   : body.checkout,\n    _processed_at   : new Date().toISOString()\n  }\n}];"
+      },
+      "id": "1a2b3c4d-5e6f-7890-abcd-ef1234567891",
+      "name": "Format_Fechas_YYYYMMDD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [530, 300],
+      "notes": "Valida, normaliza fechas YYYY-MM-DD y mapea roomTypeCode a roomTypeID de Cloudbeds"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudbeds.com/api/v1.2/postReservation",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "propertyID",
+              "value": "={{ $json.propertyID }}"
+            },
+            {
+              "name": "roomTypeID",
+              "value": "={{ $json.roomTypeID }}"
+            },
+            {
+              "name": "guestFirstName",
+              "value": "={{ $json.guestFirstName }}"
+            },
+            {
+              "name": "guestLastName",
+              "value": "={{ $json.guestLastName }}"
+            },
+            {
+              "name": "guestEmail",
+              "value": "={{ $json.guestEmail }}"
+            },
+            {
+              "name": "startDate",
+              "value": "={{ $json.startDate }}"
+            },
+            {
+              "name": "endDate",
+              "value": "={{ $json.endDate }}"
+            },
+            {
+              "name": "adults",
+              "value": "={{ $json.adults }}"
+            },
+            {
+              "name": "children",
+              "value": "={{ $json.children }}"
+            },
+            {
+              "name": "source",
+              "value": "={{ $json.source }}"
+            },
+            {
+              "name": "status",
+              "value": "={{ $json.status }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "retryOnFail": true,
+          "maxTries": 3,
+          "waitBetweenTries": 2000,
+          "timeout": 15000
+        }
+      },
+      "id": "2b3c4d5e-6f7a-8901-bcde-f12345678902",
+      "name": "POST_Cloudbeds_postReservation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [810, 300],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "cloudbeds-oauth2-sandbox",
+          "name": "Cloudbeds OAuth2 - Sandbox Virtuoso"
+        }
+      },
+      "notes": "POST a Cloudbeds v1.2/postReservation. OAuth2 configurado en Credential Manager. Retry: 3x / 2s"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-success-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4e5f6a7b-8c9d-0123-ef01-234567890123",
+      "name": "IF_Respuesta_Cloudbeds_OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1090, 300],
+      "notes": "Verifica success:true en respuesta Cloudbeds. True=exito / False=error API"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"reservationID\": \"{{ $('POST_Cloudbeds_postReservation').item.json.data.reservationID }}\",\n  \"guestName\": \"{{ $('Format_Fechas_YYYYMMDD').item.json.guestFirstName }} {{ $('Format_Fechas_YYYYMMDD').item.json.guestLastName }}\",\n  \"startDate\": \"{{ $('Format_Fechas_YYYYMMDD').item.json.startDate }}\",\n  \"endDate\": \"{{ $('Format_Fechas_YYYYMMDD').item.json.endDate }}\",\n  \"roomType\": \"{{ $('Format_Fechas_YYYYMMDD').item.json.roomTypeCode }}\",\n  \"message\": \"Reserva creada exitosamente en Cloudbeds\",\n  \"source\": \"Virtuoso IA / GHL\"\n}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "5f6a7b8c-9d0e-1234-f012-345678901234",
+      "name": "Respuesta_GHL_Exito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1370, 180],
+      "notes": "Responde 200 a GHL con reservationID y datos de confirmacion"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"error\": \"{{ $('POST_Cloudbeds_postReservation').item.json.message || 'Error en Cloudbeds API' }}\",\n  \"cloudbeds_code\": \"{{ $('POST_Cloudbeds_postReservation').item.json.code || 'UNKNOWN' }}\",\n  \"message\": \"No se pudo crear la reserva. Revisar logs en n8n.\",\n  \"processed_at\": \"{{ $now.toISO() }}\"\n}",
+        "options": {
+          "responseCode": 422,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "6a7b8c9d-0e1f-2345-0123-456789012345",
+      "name": "Respuesta_GHL_Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1370, 420],
+      "notes": "Responde 422 a GHL con detalle del error de Cloudbeds API. GHL puede reintentar."
+    }
+  ],
+  "connections": {
+    "Webhook_GHL_Entrada": {
+      "main": [
+        [
+          {
+            "node": "Format_Fechas_YYYYMMDD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format_Fechas_YYYYMMDD": {
+      "main": [
+        [
+          {
+            "node": "POST_Cloudbeds_postReservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST_Cloudbeds_postReservation": {
+      "main": [
+        [
+          {
+            "node": "IF_Respuesta_Cloudbeds_OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF_Respuesta_Cloudbeds_OK": {
+      "main": [
+        [
+          {
+            "node": "Respuesta_GHL_Exito",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta_GHL_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "errorWorkflow": "",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromAList",
+    "timezone": "America/Mexico_City"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "virtuoso-ia-cloudbeds-connector-v1"
+  },
+  "pinData": {}
+}
